@@ -15,6 +15,7 @@ pub mod query_builder {
     pub struct Insert<'a> {
         table: &'a str,
         values: HashMap<&'a str, &'a str>,
+        returns: Option<Vec<&'a str>>,
     }
 
     /// `SELECT`
@@ -38,6 +39,7 @@ pub mod query_builder {
         table: &'a str,
         values: HashMap<&'a str, &'a str>,
         conditions: Option<Vec<&'a str>>,
+        returns: Option<Vec<&'a str>>,
     }
 
     /// A helper struct for `JOIN` clause
@@ -51,11 +53,17 @@ pub mod query_builder {
 
     /// The direction of an `ORDER` clause's expression
     #[derive(Debug)]
-    pub enum Order { Asc, Desc }
+    pub enum Order {
+        Asc,
+        Desc,
+    }
 
     /// The type of `JOIN` to perform
     #[derive(Debug)]
-    pub enum Join { Left, Inner }
+    pub enum Join {
+        Left,
+        Inner,
+    }
 
     /// Combine a vector of `String`s, with the `sep` `str` between each value
     fn join(v: &Vec<&str>, sep: &str) -> String {
@@ -114,7 +122,7 @@ pub mod query_builder {
             match self.conditions {
                 Some(ref mut current_conditions) => {
                     current_conditions.push(expr);
-                },
+                }
                 None => unreachable!(),
             }
 
@@ -142,6 +150,7 @@ pub mod query_builder {
             let query_builder = Insert {
                 table: table,
                 values: HashMap::new(),
+                returns: None,
             };
 
             query_builder
@@ -153,13 +162,29 @@ pub mod query_builder {
             self
         }
 
+        /// Add returning field
+        pub fn returning(&mut self, field: &'a str) -> &mut Self {
+            if self.returns.is_none() {
+                self.returns = Some(Vec::new());
+            }
+
+            match self.returns {
+                Some(ref mut current_returns) => {
+                    current_returns.push(field);
+                }
+                None => unreachable!(),
+            }
+
+            self
+        }
+
         /// Generate SQL query (`String`) from subsequent method calls
         pub fn build(&self) -> String {
             let mut query = String::from("INSERT INTO ");
             query += self.table;
 
-            let mut columns: Vec<&str> = Vec::new();
-            let mut values: Vec<&str> = Vec::new();
+            let mut columns: Vec<&str> = Vec::with_capacity(self.values.len());
+            let mut values: Vec<&str> = Vec::with_capacity(self.values.len());
 
             for (field, value) in self.values.iter() {
                 columns.push(field);
@@ -170,7 +195,15 @@ pub mod query_builder {
             query += join(&columns, ", ").as_str();
             query += ") VALUES (";
             query += join(&values, ", ").as_str();
-            query += ");";
+            query += ")";
+
+            if let Some(ref returns) = self.returns {
+                query += " RETURNING ";
+                query += join(returns, ", ").as_str();
+            }
+
+            query += ";";
+
             query
         }
     }
@@ -203,7 +236,7 @@ pub mod query_builder {
             match self.aliases {
                 Some(ref mut aliases) => {
                     aliases.insert(table, alias);
-                },
+                }
                 None => unreachable!(),
             }
 
@@ -221,7 +254,7 @@ pub mod query_builder {
                     for field in fields {
                         current_fields.push(field);
                     }
-                },
+                }
                 None => unreachable!(),
             }
 
@@ -237,7 +270,7 @@ pub mod query_builder {
             match self.conditions {
                 Some(ref mut current_conditions) => {
                     current_conditions.push(expr);
-                },
+                }
                 None => unreachable!(),
             }
 
@@ -253,7 +286,7 @@ pub mod query_builder {
             match self.groupings {
                 Some(ref mut current_groupings) => {
                     current_groupings.push(val);
-                },
+                }
                 None => unreachable!(),
             }
 
@@ -269,7 +302,7 @@ pub mod query_builder {
             match self.havings {
                 Some(ref mut current_havings) => {
                     current_havings.push(expr);
-                },
+                }
                 None => unreachable!(),
             }
 
@@ -286,14 +319,20 @@ pub mod query_builder {
                 Some(ref mut current_order) => {
                     let order = (expr, direction);
                     current_order.push(order);
-                },
+                }
                 None => unreachable!(),
             }
 
-            self 
+            self
         }
 
-        pub fn join(&mut self, table: &'a str, on_left: &'a str, on_right: &'a str, kind: Join) -> &mut Self {
+        pub fn join(
+            &mut self,
+            table: &'a str,
+            on_left: &'a str,
+            on_right: &'a str,
+            kind: Join,
+        ) -> &mut Self {
             if self.joins.is_none() {
                 self.joins = Some(Vec::new());
             }
@@ -307,7 +346,7 @@ pub mod query_builder {
                         kind: kind,
                     };
                     current_joins.push(join);
-                },
+                }
                 None => unreachable!(),
             }
 
@@ -333,7 +372,7 @@ pub mod query_builder {
             match self.fields {
                 Some(ref fields) => {
                     query += join(fields, ", ").as_str();
-                },
+                }
                 None => query += "*",
             }
 
@@ -420,6 +459,7 @@ pub mod query_builder {
                 table: table,
                 values: HashMap::new(),
                 conditions: None,
+                returns: None,
             };
 
             query_builder
@@ -428,6 +468,22 @@ pub mod query_builder {
         /// Set a field value
         pub fn set(&mut self, field: &'a str, value: &'a str) -> &mut Self {
             let _ = self.values.insert(field, value);
+            self
+        }
+
+        /// Add returning field
+        pub fn returning(&mut self, field: &'a str) -> &mut Self {
+            if self.returns.is_none() {
+                self.returns = Some(Vec::new());
+            }
+
+            match self.returns {
+                Some(ref mut current_returns) => {
+                    current_returns.push(field);
+                }
+                None => unreachable!(),
+            }
+
             self
         }
 
@@ -440,7 +496,7 @@ pub mod query_builder {
             match self.conditions {
                 Some(ref mut current_conditions) => {
                     current_conditions.push(expr);
-                },
+                }
                 None => unreachable!(),
             }
 
@@ -453,12 +509,16 @@ pub mod query_builder {
             query += self.table;
 
             let assignments: Vec<String>;
-            assignments = self.values.iter().map(|(&field, &value)| {
-                let mut assignment = String::from(field);
-                assignment += " = ";
-                assignment += value;
-                assignment
-            }).collect();
+            assignments = self
+                .values
+                .iter()
+                .map(|(&field, &value)| {
+                    let mut assignment = String::from(field);
+                    assignment += " = ";
+                    assignment += value;
+                    assignment
+                })
+                .collect();
 
             query += " SET ";
             query += assignments.join(" AND ").as_str();
@@ -466,6 +526,11 @@ pub mod query_builder {
             if let Some(ref conditions) = self.conditions {
                 query += " WHERE ";
                 query += join(conditions, " AND ").as_str();
+            }
+
+            if let Some(ref returns) = self.returns {
+                query += " RETURNING ";
+                query += join(returns, ", ").as_str();
             }
 
             query += ";";
@@ -502,8 +567,11 @@ mod tests {
     fn test_debug() {
         let query_builder = query_builder::select("users");
         let query = format!("{:?}", query_builder);
-        assert_eq!("Select { table: \"users\", aliases: None, fields: None, order: None, \
-            joins: None, groupings: None, havings: None, conditions: None, limit: 0, offset: 0 }", query);
+        assert_eq!(
+            "Select { table: \"users\", aliases: None, fields: None, order: None, \
+             joins: None, groupings: None, havings: None, conditions: None, limit: 0, offset: 0 }",
+            query
+        );
     }
 
     #[test]
@@ -515,8 +583,7 @@ mod tests {
 
     #[test]
     fn test_delete_query() {
-        let query = query_builder::delete("users")
-            .build();
+        let query = query_builder::delete("users").build();
         assert_eq!("DELETE FROM users;", query);
     }
 
@@ -542,8 +609,7 @@ mod tests {
 
     #[test]
     fn test_select_query() {
-        let query = query_builder::select("users")
-            .build();
+        let query = query_builder::select("users").build();
         assert_eq!("SELECT * FROM users;", query);
     }
 
@@ -590,7 +656,10 @@ mod tests {
             .group_by("name")
             .having("max > 100")
             .build();
-        assert_eq!("SELECT id, name, MAX(karma) AS max FROM users GROUP BY name HAVING max > 100;", query);
+        assert_eq!(
+            "SELECT id, name, MAX(karma) AS max FROM users GROUP BY name HAVING max > 100;",
+            query
+        );
     }
 
     #[test]
@@ -600,7 +669,10 @@ mod tests {
             .filter("id = $1")
             .filter("name = $2")
             .build();
-        assert_eq!("SELECT id, name FROM users WHERE id = $1 AND name = $2;", query);
+        assert_eq!(
+            "SELECT id, name FROM users WHERE id = $1 AND name = $2;",
+            query
+        );
     }
 
     #[test]
@@ -610,7 +682,10 @@ mod tests {
             .filter("name = $1")
             .order_by("id", query_builder::Order::Asc)
             .build();
-        assert_eq!("SELECT id, name FROM users WHERE name = $1 ORDER BY id ASC;", query);
+        assert_eq!(
+            "SELECT id, name FROM users WHERE name = $1 ORDER BY id ASC;",
+            query
+        );
     }
 
     #[test]
@@ -642,6 +717,9 @@ mod tests {
             .filter("name = $1")
             .filter("last_login < $2")
             .build();
-        assert_eq!("UPDATE users SET karma = 0 WHERE name = $1 AND last_login < $2;", query);
+        assert_eq!(
+            "UPDATE users SET karma = 0 WHERE name = $1 AND last_login < $2;",
+            query
+        );
     }
 }
