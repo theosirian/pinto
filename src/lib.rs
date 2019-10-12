@@ -66,7 +66,7 @@ pub mod query_builder {
     }
 
     /// Combine a vector of `String`s, with the `sep` `str` between each value
-    fn join(v: &Vec<&str>, sep: &str) -> String {
+    fn join(v: &[&str], sep: &str) -> String {
         let mut s = String::new();
         let last_i = v.len() - 1;
         for (i, val) in v.iter().enumerate() {
@@ -105,12 +105,10 @@ pub mod query_builder {
     impl<'a> Delete<'a> {
         /// Construct a new `DELETE` query builder
         pub fn new(table: &'a str) -> Self {
-            let query_builder = Delete {
-                table: table,
+            Delete {
+                table,
                 conditions: None,
-            };
-
-            query_builder
+            }
         }
 
         /// Filter result set based on conditions (`WHERE` clause)
@@ -147,13 +145,11 @@ pub mod query_builder {
     impl<'a> Insert<'a> {
         /// Construct a new `INSERT` query builder
         pub fn new(table: &'a str) -> Self {
-            let query_builder = Insert {
-                table: table,
+            Insert {
+                table,
                 values: HashMap::new(),
                 returns: None,
-            };
-
-            query_builder
+            }
         }
 
         /// Set a field value
@@ -211,8 +207,8 @@ pub mod query_builder {
     impl<'a> Select<'a> {
         /// Construct a new `SELECT` query builder
         pub fn new(table: &'a str) -> Self {
-            let query_builder = Select {
-                table: table,
+            Select {
+                table,
                 aliases: None,
                 fields: None,
                 order: None,
@@ -222,9 +218,7 @@ pub mod query_builder {
                 havings: None,
                 limit: 0usize,
                 offset: 0usize,
-            };
-
-            query_builder
+            }
         }
 
         /// Set a table alias (`AS`)
@@ -340,10 +334,10 @@ pub mod query_builder {
             match self.joins {
                 Some(ref mut current_joins) => {
                     let join = JoinClause {
-                        table: table,
-                        on_left: on_left,
-                        on_right: on_right,
-                        kind: kind,
+                        table,
+                        on_left,
+                        on_right,
+                        kind,
                     };
                     current_joins.push(join);
                 }
@@ -455,14 +449,12 @@ pub mod query_builder {
     impl<'a> Update<'a> {
         /// Construct a new `UPDATE` query builder
         pub fn new(table: &'a str) -> Self {
-            let query_builder = Update {
-                table: table,
+            Update {
+                table,
                 values: HashMap::new(),
                 conditions: None,
                 returns: None,
-            };
-
-            query_builder
+            }
         }
 
         /// Set a field value
